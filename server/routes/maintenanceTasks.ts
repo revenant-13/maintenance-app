@@ -43,7 +43,33 @@ const postMaintenanceTaskHandler: RequestHandler<{}, any, IMaintenanceTask> = as
   }
 };
 
+// PUT update maintenance task (e.g., mark as completed)
+const updateMaintenanceTaskHandler: RequestHandler<{ id: string }, any, { completed: boolean }> = async (
+  req: Request<{ id: string }, any, { completed: boolean }>,
+  res: Response
+) => {
+  try {
+    const { id } = req.params;
+    const { completed } = req.body;
+
+    const updatedTask = await MaintenanceTask.findByIdAndUpdate(
+      id,
+      { $set: { completed } },
+      { new: true }
+    );
+    if (!updatedTask) {
+      res.status(404).send("Task not found");
+      return;
+    }
+    res.json(updatedTask);
+  } catch (err) {
+    console.error("Error updating maintenance task:", err);
+    res.status(400).send("Error updating maintenance task: " + err);
+  }
+};
+
 router.get("/", getMaintenanceTasksHandler);
 router.post("/", postMaintenanceTaskHandler);
+router.put("/:id", updateMaintenanceTaskHandler);
 
 export default router;
