@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "target": "ES6",              // Modern JS version
+    "module": "commonjs",         // Node.js module system
+    "outDir": "./dist",           // Output compiled JS here
+    "rootDir": "./",              // Source files root
+    "strict": true,               // Enforce strict typing
+    "esModuleInterop": true,      // Better module compatibility
+    "skipLibCheck": true          // Speed up compilation
+  },
+  "include": ["**/*.ts"],         // Compile all .ts files
+  "exclude": ["node_modules"]     // Ignore node_modules
+}
