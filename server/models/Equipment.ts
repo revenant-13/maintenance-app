@@ -1,19 +1,21 @@
 import mongoose, { Schema, Document } from "mongoose";
 
 export interface IEquipment extends Document {
-  _id: string; // Explicitly string, not ObjectId
+  _id: string;
   name: string;
   parentId?: string;
   partIds?: string[];
+  parts?: string[];
   inventoryId?: string;
 }
 
 const EquipmentSchema: Schema = new Schema({
-  _id: { type: String }, // Override default ObjectId
+  _id: { type: String },
   name: { type: String, required: true },
   parentId: { type: String, ref: "Equipment" },
   partIds: [{ type: String, ref: "Equipment" }],
+  parts: [{ type: String }],
   inventoryId: { type: String },
-}, { _id: false }); // Disable auto _id generation
+}, { _id: false });
 
 export default mongoose.model<IEquipment>("Equipment", EquipmentSchema);

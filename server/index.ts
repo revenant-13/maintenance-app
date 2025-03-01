@@ -26,15 +26,29 @@ app.get("/equipment", async (req: Request, res: Response) => {
   }
 });
 
-// POST new equipment
-app.post("/equipment", async (req: Request, res: Response) => {
+// POST new equipment with typed request body
+app.post("/equipment", async (req: Request<{}, {}, IEquipment>, res: Response) => {
   try {
-    console.log("Received equipment:", req.body); // Debug log
-    const newEquipment = new Equipment(req.body);
+    console.log("Received equipment:", req.body);
+    const { _id, name, partIds, parentId, parts, inventoryId } = req.body;
+
+    // Validate required fields
+    if (!name) {
+      return res.status(400).send("Name is required");
+    }
+
+    const newEquipment = new Equipment({
+      _id: _id || `equip-${Date.now()}`, // Fallback ID if not provided
+      name,
+      partIds: partIds || [],
+      parentId,
+      parts: parts || [], // Inventory parts
+      inventoryId,
+    });
     const savedEquipment = await newEquipment.save();
     res.status(201).json(savedEquipment);
   } catch (err) {
-    console.error("Error adding equipment:", err); // Detailed error
+    console.error("Error adding equipment:", err);
     res.status(400).send("Error adding equipment: " + err);
   }
 });
