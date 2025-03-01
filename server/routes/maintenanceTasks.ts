@@ -6,7 +6,12 @@ const router = express.Router();
 // GET all maintenance tasks
 const getMaintenanceTasksHandler: RequestHandler = async (req: Request, res: Response) => {
   try {
-    const tasks: IMaintenanceTask[] = await MaintenanceTask.find();
+    const { completed } = req.query;
+    const filter: any = {};
+    if (completed !== undefined) {
+      filter.completed = completed === "true";
+    }
+    const tasks: IMaintenanceTask[] = await MaintenanceTask.find(filter);
     res.json(tasks);
   } catch (err) {
     res.status(500).send("Error fetching maintenance tasks: " + err);
@@ -43,18 +48,18 @@ const postMaintenanceTaskHandler: RequestHandler<{}, any, IMaintenanceTask> = as
   }
 };
 
-// PUT update maintenance task (e.g., mark as completed)
-const updateMaintenanceTaskHandler: RequestHandler<{ id: string }, any, { completed: boolean }> = async (
-  req: Request<{ id: string }, any, { completed: boolean }>,
+// PUT update maintenance task (toggle completed or edit details)
+const updateMaintenanceTaskHandler: RequestHandler<{ id: string }, any, Partial<IMaintenanceTask>> = async (
+  req: Request<{ id: string }, any, Partial<IMaintenanceTask>>,
   res: Response
 ) => {
   try {
     const { id } = req.params;
-    const { completed } = req.body;
+    const updates = req.body;
 
     const updatedTask = await MaintenanceTask.findByIdAndUpdate(
       id,
-      { $set: { completed } },
+      { $set: updates },
       { new: true }
     );
     if (!updatedTask) {
