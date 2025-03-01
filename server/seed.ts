@@ -15,9 +15,9 @@ interface SeedEquipment {
 }
 
 const sampleData: SeedEquipment[] = [
-  { _id: "equip-001", name: "Pump B", partIds: ["equip-002", "equip-003"] },
-  { _id: "equip-002", name: "Motor", parentId: "equip-001" },
-  { _id: "equip-003", name: "Valve", parentId: "equip-001" },
+  { _id: "equip-001", name: "Pump B", partIds: ["equip-002", "equip-003"], inventoryPartIds: ["part-003", "part-004"] },
+  { _id: "equip-002", name: "Motor", parentId: "equip-001", inventoryPartIds: ["part-003", "part-004"] },
+  { _id: "equip-003", name: "Valve", parentId: "equip-001", inventoryPartIds: ["part-005"] },
 ];
 
 async function seedDatabase() {

@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import cors from "cors";
 import equipmentRoutes from "./routes/equipment";
 import inventoryRoutes from "./routes/inventory";
+import maintenanceTasksRoutes from "./routes/maintenanceTasks";
 
 const app = express();
 const port = 3001;
@@ -14,6 +15,7 @@ app.use(express.json());
 // Routes
 app.use("/equipment", equipmentRoutes);
 app.use("/inventory", inventoryRoutes);
+app.use("/maintenance-tasks", maintenanceTasksRoutes);
 
 // Connect to MongoDB
 mongoose
