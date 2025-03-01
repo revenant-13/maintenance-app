@@ -6,10 +6,15 @@ const router = express.Router();
 // GET all maintenance tasks
 const getMaintenanceTasksHandler: RequestHandler = async (req: Request, res: Response) => {
   try {
-    const { completed } = req.query;
+    const { completed, start, end } = req.query;
     const filter: any = {};
     if (completed !== undefined) {
       filter.completed = completed === "true";
+    }
+    if (start || end) {
+      filter.schedule = {};
+      if (start) filter.schedule.$gte = new Date(start as string);
+      if (end) filter.schedule.$lte = new Date(end as string);
     }
     const tasks: IMaintenanceTask[] = await MaintenanceTask.find(filter);
     res.json(tasks);
