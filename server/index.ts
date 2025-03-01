@@ -1,4 +1,4 @@
-import express, { Request, Response } from "express";
+import express, { Request, Response, RequestHandler } from "express";
 import mongoose from "mongoose";
 import cors from "cors";
 import Equipment, { IEquipment } from "./models/Equipment";
@@ -17,32 +17,38 @@ mongoose
   .catch((err) => console.error("MongoDB connection error:", err));
 
 // GET all equipment
-app.get("/equipment", async (req: Request, res: Response) => {
+const getEquipmentHandler: RequestHandler = async (req: Request, res: Response) => {
   try {
     const equipment: IEquipment[] = await Equipment.find();
     res.json(equipment);
   } catch (err) {
     res.status(500).send("Error fetching equipment: " + err);
   }
-});
+};
 
-// POST new equipment with typed request body
-app.post("/equipment", async (req: Request<{}, {}, IEquipment>, res: Response) => {
+app.get("/equipment", getEquipmentHandler);
+
+// POST new equipment
+const postEquipmentHandler: RequestHandler<{}, any, IEquipment> = async (
+  req: Request<{}, any, IEquipment>,
+  res: Response
+) => {
   try {
     console.log("Received equipment:", req.body);
-    const { _id, name, partIds, parentId, parts, inventoryId } = req.body;
+    const { _id, name, partIds, parentId, inventoryPartIds, inventoryId } = req.body;
 
     // Validate required fields
     if (!name) {
-      return res.status(400).send("Name is required");
+      res.status(400).send("Name is required");
+      return;
     }
 
     const newEquipment = new Equipment({
       _id: _id || `equip-${Date.now()}`, // Fallback ID if not provided
       name,
-      partIds: partIds || [],
+      partIds: partIds || [], // Sub-equipment IDs
       parentId,
-      parts: parts || [], // Inventory parts
+      inventoryPartIds: inventoryPartIds || [], // Inventory part IDs
       inventoryId,
     });
     const savedEquipment = await newEquipment.save();
@@ -51,7 +57,9 @@ app.post("/equipment", async (req: Request<{}, {}, IEquipment>, res: Response) =
     console.error("Error adding equipment:", err);
     res.status(400).send("Error adding equipment: " + err);
   }
-});
+};
+
+app.post("/equipment", postEquipmentHandler);
 
 app.get("/", (req: Request, res: Response) => {
   res.send("Hello, World! This is the maintenance app backend.");

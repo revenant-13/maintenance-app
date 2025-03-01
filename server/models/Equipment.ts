@@ -4,8 +4,8 @@ export interface IEquipment extends Document {
   _id: string;
   name: string;
   parentId?: string;
-  partIds?: string[];
-  parts?: string[];
+  partIds?: string[]; // Sub-equipment IDs
+  inventoryPartIds?: string[]; // Inventory part IDs
   inventoryId?: string;
 }
 
@@ -14,7 +14,7 @@ const EquipmentSchema: Schema = new Schema({
   name: { type: String, required: true },
   parentId: { type: String, ref: "Equipment" },
   partIds: [{ type: String, ref: "Equipment" }],
-  parts: [{ type: String }],
+  inventoryPartIds: [{ type: String, ref: "Inventory" }], // Reference Inventory model
   inventoryId: { type: String },
 }, { _id: false });
 
