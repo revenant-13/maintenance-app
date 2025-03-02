@@ -21,7 +21,6 @@ const postTasksHandler: RequestHandler = async (req, res) => {
       description: req.body.description,
       completed: req.body.completed || false,
     };
-
     const newTask = new MaintenanceTask(newTaskObject);
     console.log("New task before save:", newTask);
     console.log("New task _id:", newTask._id);
@@ -38,7 +37,6 @@ const putTaskHandler: RequestHandler<{ id: string }> = async (req, res) => {
   try {
     const { id } = req.params;
     const updates = req.body;
-
     const updatedTask = await MaintenanceTask.findByIdAndUpdate(
       id,
       { $set: updates },
@@ -58,7 +56,6 @@ const putTaskHandler: RequestHandler<{ id: string }> = async (req, res) => {
 const deleteTaskHandler: RequestHandler<{ id: string }> = async (req, res) => {
   try {
     const { id } = req.params;
-
     const result = await MaintenanceTask.deleteOne({ _id: id });
     if (result.deletedCount === 0) {
       res.status(404).send("Task not found");
