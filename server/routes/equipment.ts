@@ -1,5 +1,6 @@
 import express, { Request, Response, RequestHandler } from "express";
 import Equipment, { IEquipment } from "../models/Equipment";
+import MaintenanceTask from "../models/MaintenanceTask"; // Added
 
 const router = express.Router();
 
@@ -67,7 +68,7 @@ const postEquipmentHandler: RequestHandler<{}, any, IEquipment> = async (
       );
     }
 
-    const savedEquipment = await newEquipment.save(); // Note: Redundant—remove in final version
+    const savedEquipment = await newEquipment.save(); // Note: Redundant—remove in final cleanup
 
     res.status(201).json(savedEquipment);
   } catch (err) {
@@ -82,11 +83,49 @@ const updateEquipmentHandler: RequestHandler<{ id: string }, any, Partial<IEquip
 ) => {
   try {
     const { id } = req.params;
-    const updates = req.body;
+    const { name, partIds, inventoryPartIds } = req.body;
+
+    const equipment = await Equipment.findById(id);
+    if (!equipment) {
+      res.status(404).send("Equipment not found");
+      return;
+    }
+
+    // Handle partIds update
+    if (partIds) {
+      // Remove this equipment from prior sub-equipment parents not in new partIds
+      const oldSubEquipment = await Equipment.find({ parentId: id });
+      for (const sub of oldSubEquipment) {
+        if (!partIds.includes(sub._id.toString())) {
+          await Equipment.updateOne(
+            { _id: sub._id },
+            { $set: { parentId: null } }
+          );
+        }
+      }
+
+      // Update new sub-equipment parentId and clean up prior parents
+      const subEquipment = await Equipment.find({ _id: { $in: partIds } });
+      for (const sub of subEquipment) {
+        if (sub.parentId && sub.parentId !== id) {
+          await Equipment.updateOne(
+            { _id: sub.parentId },
+            { $pull: { partIds: sub._id } }
+          );
+        }
+      }
+      console.log("Updating sub-equipment parentId to:", id);
+      console.log("Sub-equipment IDs:", partIds);
+      await Equipment.updateMany(
+        { _id: { $in: partIds } },
+        { $set: { parentId: id } }
+      );
+      console.log("Updated sub-equipment:", await Equipment.find({ _id: { $in: partIds } }));
+    }
 
     const updatedEquipment = await Equipment.findByIdAndUpdate(
       id,
-      { $set: updates },
+      { $set: { name, partIds, inventoryPartIds } },
       { new: true }
     );
     if (!updatedEquipment) {
@@ -113,7 +152,6 @@ const deleteEquipmentHandler: RequestHandler<{ id: string }> = async (
       return;
     }
 
-    // Clear parentId of sub-equipment
     if (equipment.partIds && equipment.partIds.length > 0) {
       await Equipment.updateMany(
         { _id: { $in: equipment.partIds } },
@@ -121,7 +159,6 @@ const deleteEquipmentHandler: RequestHandler<{ id: string }> = async (
       );
     }
 
-    // Remove from parent's partIds
     if (equipment.parentId) {
       await Equipment.updateOne(
         { _id: equipment.parentId },
@@ -129,11 +166,18 @@ const deleteEquipmentHandler: RequestHandler<{ id: string }> = async (
       );
     }
 
-    await Equipment.deleteOne({ _id: id });
+    // Delete associated tasks
+    await MaintenanceTask.deleteMany({ equipmentId: id });
+
+    const result = await Equipment.deleteOne({ _id: id });
+    if (result.deletedCount === 0) {
+      throw new Error("Failed to delete equipment");
+    }
+
     res.status(204).send();
   } catch (err) {
     console.error("Error deleting equipment:", err);
-    res.status(400).send("Error deleting equipment: " + err);
+    res.status(500).send("Error deleting equipment: " + err);
   }
 };
 
