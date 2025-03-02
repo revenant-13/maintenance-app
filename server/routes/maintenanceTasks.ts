@@ -1,4 +1,4 @@
-import express, { RequestHandler } from "express";
+import express, { RequestHandler, Router } from "express";
 import MaintenanceTask from "../models/MaintenanceTask";
 
 const router = express.Router();
@@ -14,23 +14,17 @@ const getTasksHandler: RequestHandler = async (req, res) => {
 
 const postTasksHandler: RequestHandler = async (req, res) => {
   try {
-    const { equipmentId, type, schedule, description, completed } = req.body;
+    const newTaskObject = {
+      equipmentId: req.body.equipmentId,
+      type: req.body.type,
+      schedule: req.body.schedule,
+      description: req.body.description,
+      completed: req.body.completed || false,
+    };
 
-    if (!equipmentId || !type || !schedule) {
-      res.status(400).send("Equipment ID, type, and schedule are required");
-      return;
-    }
-
-    const newTask = new MaintenanceTask({
-      equipmentId,
-      type,
-      schedule,
-      description,
-      completed: completed || false,
-    });
-
+    const newTask = new MaintenanceTask(newTaskObject);
     console.log("New task before save:", newTask);
-    console.log("New task _id:", newTask._id); // Debug _id
+    console.log("New task _id:", newTask._id);
     const savedTask = await newTask.save();
     console.log("Saved task:", savedTask);
     res.status(201).json(savedTask);
