@@ -8,6 +8,9 @@ const ManageEquipment: React.FC = () => {
   const [editName, setEditName] = useState("");
   const [editPartIds, setEditPartIds] = useState<string[]>([]);
   const [editInventoryPartIds, setEditInventoryPartIds] = useState<string[]>([]);
+  const [viewPartsId, setViewPartsId] = useState<string | null>(null); // Tracks viewed parts
+  const [isAddingParts, setIsAddingParts] = useState(false); // Toggle add parts mode
+  const [newPartId, setNewPartId] = useState(""); // Selected part to add
 
   const handleEditStart = (equip: any) => {
     setEditingId(equip.id);
@@ -17,11 +20,8 @@ const ManageEquipment: React.FC = () => {
   };
 
   const handleEditSave = async (id: string) => {
-    // Remove this equipment's ID from other equipment's partIds to avoid overlap
     for (const partId of editPartIds) {
-      const parentEquip = equipmentData.find(
-        (e) => e.id !== id && e.partIds && e.partIds.includes(partId)
-      );
+      const parentEquip = equipmentData.find((e) => e.id !== id && e.partIds && e.partIds.includes(partId));
       if (parentEquip && parentEquip.partIds) {
         await updateEquipment(parentEquip.id, {
           partIds: parentEquip.partIds.filter((pid: string) => pid !== partId),
@@ -29,18 +29,16 @@ const ManageEquipment: React.FC = () => {
       }
     }
 
-    const updates = {
-      name: editName,
-      partIds: editPartIds,
-      inventoryPartIds: editInventoryPartIds,
-    };
+    const updates = { name: editName, partIds: editPartIds, inventoryPartIds: editInventoryPartIds };
     const updatedEquipment = await updateEquipment(id, updates);
     if (updatedEquipment) {
-      await fetchData(); // Refresh data after save
+      await fetchData();
       setEditingId(null);
       setEditName("");
       setEditPartIds([]);
       setEditInventoryPartIds([]);
+      setViewPartsId(null); // Hide parts after save
+      setIsAddingParts(false); // Reset add mode
     }
   };
 
@@ -49,6 +47,8 @@ const ManageEquipment: React.FC = () => {
     setEditName("");
     setEditPartIds([]);
     setEditInventoryPartIds([]);
+    setViewPartsId(null);
+    setIsAddingParts(false);
   };
 
   const handleDelete = async (id: string) => {
@@ -70,12 +70,29 @@ const ManageEquipment: React.FC = () => {
     );
   };
 
-  const getDescendants = (equipId: string, allEquipment: any[]): string[] => {
+  const handleAddPart = () => {
+    if (newPartId && !editInventoryPartIds.includes(newPartId)) {
+      setEditInventoryPartIds([...editInventoryPartIds, newPartId]);
+      setNewPartId(""); // Reset selection
+    }
+  };
+
+  const handleRemovePart = (partId: string) => {
+    setEditInventoryPartIds(editInventoryPartIds.filter((id) => id !== partId));
+  };
+
+  const toggleViewParts = (id: string) => {
+    setViewPartsId(viewPartsId === id ? null : id);
+    setIsAddingParts(false); // Reset add mode when toggling view
+  };
+
+  const getDescendants = (equipId: string, allEquipment: any[], visited: Set<string> = new Set()): string[] => {
     const descendants: string[] = [];
-    const visited = new Set<string>();
+    if (visited.has(equipId)) return descendants;
+    visited.add(equipId);
 
     const findDescendants = (id: string) => {
-      const children = allEquipment.filter((e) => e.partIds?.includes(id));
+      const children = allEquipment.filter((e) => e.parentId === id);
       children.forEach((child) => {
         if (!visited.has(child.id)) {
           descendants.push(child.id);
@@ -94,13 +111,12 @@ const ManageEquipment: React.FC = () => {
       <ul className="space-y-4">
         {equipmentData.map((equip) => {
           const descendants = getDescendants(equip.id, equipmentData);
-          // Filter valid sub-equipment: exclude self, descendants, and items that would create cycles
           const validSubEquipment = equipmentData.filter(
-            (e) =>
-              e.id !== equip.id && // Exclude self
-              !descendants.includes(e.id) && // Exclude descendants
-              !editPartIds.some((pid) => getDescendants(pid, equipmentData).includes(e.id)) // Prevent cycles
+            (e) => e.id !== equip.id && !descendants.includes(e.id)
           );
+          const equipmentParts = (equip.inventoryPartIds || []).map((partId: string) =>
+            inventoryData.find((item) => item._id === partId)
+          ).filter((part): part is { _id: string; name: string; stock: number; category?: string } => !!part);
 
           return (
             <li key={equip.id} className="border p-4 rounded">
@@ -130,31 +146,66 @@ const ManageEquipment: React.FC = () => {
                   </div>
                   <div>
                     <label className="block font-semibold">Inventory Parts:</label>
-                    <div className="max-h-40 overflow-auto border p-2 rounded">
-                      {inventoryData.map((part) => (
-                        <div key={part._id} className="flex items-center">
-                          <input
-                            type="checkbox"
-                            checked={editInventoryPartIds.includes(part._id)}
-                            onChange={() => toggleInventoryPart(part._id)}
-                            className="mr-2"
-                          />
-                          <span>{part.name} (Stock: {part.stock})</span>
-                        </div>
-                      ))}
-                    </div>
+                    {viewPartsId === equip.id && (
+                      <>
+                        <ul className="list-disc ml-6 mt-1 text-sm text-gray-500">
+                          {equipmentParts.map((part) => (
+                            <li key={part._id} className="flex items-center gap-2">
+                              {part.name} (Stock: {part.stock})
+                              <button
+                                onClick={() => handleRemovePart(part._id)}
+                                className="bg-red-500 text-white p-1 rounded text-xs"
+                              >
+                                Remove
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                        {isAddingParts ? (
+                          <div className="mt-2 flex gap-2">
+                            <select
+                              value={newPartId}
+                              onChange={(e) => setNewPartId(e.target.value)}
+                              className="border p-1"
+                            >
+                              <option value="">Select a Part</option>
+                              {inventoryData
+                                .filter((part) => !editInventoryPartIds.includes(part._id))
+                                .map((part) => (
+                                  <option key={part._id} value={part._id}>
+                                    {part.name} (Stock: {part.stock})
+                                  </option>
+                                ))}
+                            </select>
+                            <button
+                              onClick={handleAddPart}
+                              className="bg-blue-500 text-white p-1 rounded text-xs"
+                            >
+                              Add
+                            </button>
+                            <button
+                              onClick={() => setIsAddingParts(false)}
+                              className="bg-gray-500 text-white p-1 rounded text-xs"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setIsAddingParts(true)}
+                            className="mt-2 bg-green-500 text-white p-1 rounded text-xs"
+                          >
+                            Add Part
+                          </button>
+                        )}
+                      </>
+                    )}
                   </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleEditSave(equip.id)}
-                      className="bg-green-500 text-white p-2 rounded"
-                    >
+                  <div className="flex gap-2 mt-2">
+                    <button onClick={() => handleEditSave(equip.id)} className="bg-green-500 text-white p-2 rounded">
                       Save
                     </button>
-                    <button
-                      onClick={handleEditCancel}
-                      className="bg-gray-500 text-white p-2 rounded"
-                    >
+                    <button onClick={handleEditCancel} className="bg-gray-500 text-white p-2 rounded">
                       Cancel
                     </button>
                   </div>
@@ -164,15 +215,15 @@ const ManageEquipment: React.FC = () => {
                   <span>{equip.name}</span>
                   <div className="flex gap-2">
                     <button
-                      onClick={() => handleEditStart(equip)}
-                      className="bg-yellow-500 text-white p-2 rounded"
+                      onClick={() => toggleViewParts(equip.id)}
+                      className="bg-blue-500 text-white p-2 rounded"
                     >
+                      {viewPartsId === equip.id ? "Hide Parts" : "View Parts"}
+                    </button>
+                    <button onClick={() => handleEditStart(equip)} className="bg-yellow-500 text-white p-2 rounded">
                       Edit
                     </button>
-                    <button
-                      onClick={() => handleDelete(equip.id)}
-                      className="bg-red-500 text-white p-2 rounded"
-                    >
+                    <button onClick={() => handleDelete(equip.id)} className="bg-red-500 text-white p-2 rounded">
                       Delete
                     </button>
                   </div>

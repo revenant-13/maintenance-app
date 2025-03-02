@@ -1,136 +1,80 @@
-import React, { useState, useEffect } from "react";
-import { getAllInventory, addInventory, updateInventory, deleteInventory } from "../services/equipmentService";
+import React, { useState } from "react";
+import { updateEquipment } from "../services/equipmentService";
 
-const PartsManagement: React.FC = () => {
-  const [inventory, setInventory] = useState<any[]>([]);
-  const [name, setName] = useState("");
-  const [stock, setStock] = useState("");
-  const [category, setCategory] = useState("");
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editName, setEditName] = useState("");
-  const [editStock, setEditStock] = useState("");
-  const [editCategory, setEditCategory] = useState("");
+interface PartsManagementProps {
+  equipmentId: string;
+  inventoryPartIds: string[];
+  availableParts: { _id: string; name: string; stock: number; category?: string }[];
+  onPartsUpdated: (updatedPartIds: string[]) => Promise<void>;
+  onClose: () => void;
+}
 
-  const fetchInventory = async () => {
-    const data = await getAllInventory();
-    setInventory(data);
-  };
+const PartsManagement: React.FC<PartsManagementProps> = ({
+  equipmentId,
+  inventoryPartIds,
+  availableParts,
+  onPartsUpdated,
+  onClose,
+}) => {
+  const [currentPartIds, setCurrentPartIds] = useState<string[]>(inventoryPartIds);
+  const [newPartId, setNewPartId] = useState("");
 
-  useEffect(() => {
-    fetchInventory();
-  }, []);
-
-  const handleAdd = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const newItem = { name, stock: parseInt(stock), category: category || undefined };
-    const addedItem = await addInventory(newItem);
-    if (addedItem) {
-      setInventory([...inventory, addedItem]);
-      setName("");
-      setStock("");
-      setCategory("");
+  const handleAddPart = async () => {
+    if (newPartId && !currentPartIds.includes(newPartId)) {
+      const updatedPartIds = [...currentPartIds, newPartId];
+      setCurrentPartIds(updatedPartIds);
+      setNewPartId("");
+      await onPartsUpdated(updatedPartIds);
     }
   };
 
-  const handleEditStart = (item: any) => {
-    setEditingId(item._id);
-    setEditName(item.name);
-    setEditStock(item.stock.toString());
-    setEditCategory(item.category || "");
-  };
-
-  const handleEditSave = async (id: string) => {
-    const updates = { name: editName, stock: parseInt(editStock), category: editCategory || undefined };
-    const updatedItem = await updateInventory(id, updates);
-    if (updatedItem) {
-      setInventory(inventory.map(item => item._id === id ? updatedItem : item));
-      setEditingId(null);
-      setEditName("");
-      setEditStock("");
-      setEditCategory("");
-    }
-  };
-
-  const handleEditCancel = () => {
-    setEditingId(null);
-    setEditName("");
-    setEditStock("");
-    setEditCategory("");
-  };
-
-  const handleDelete = async (id: string) => {
-    if (window.confirm("Are you sure you want to delete this part?")) {
-      await deleteInventory(id);
-      setInventory(inventory.filter(item => item._id !== id));
-    }
+  const handleRemovePart = async (partId: string) => {
+    const updatedPartIds = currentPartIds.filter((id) => id !== partId);
+    setCurrentPartIds(updatedPartIds);
+    await onPartsUpdated(updatedPartIds);
   };
 
   return (
-    <div className="p-6">
-      <h2 className="text-xl font-semibold mb-4">Parts Management</h2>
-      <form onSubmit={handleAdd} className="mb-6 flex gap-4">
-        <input
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Part Name"
-          className="border p-2"
-          required
-        />
-        <input
-          type="number"
-          value={stock}
-          onChange={(e) => setStock(e.target.value)}
-          placeholder="Stock"
-          className="border p-2"
-          required
-        />
-        <input
-          type="text"
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-          placeholder="Category (optional)"
-          className="border p-2"
-        />
-        <button type="submit" className="bg-blue-500 text-white p-2 rounded">Add Part</button>
-      </form>
+    <div className="p-4">
+      <h3 className="text-lg font-semibold mb-2">Parts for Equipment</h3>
+      <button onClick={onClose} className="float-right text-gray-500">Close</button>
+      <div className="mb-4">
+        <select
+          value={newPartId}
+          onChange={(e) => setNewPartId(e.target.value)}
+          className="border p-2 w-full"
+        >
+          <option value="">Select a Part</option>
+          {availableParts
+            .filter((part) => !currentPartIds.includes(part._id))
+            .map((part) => (
+              <option key={part._id} value={part._id}>
+                {part.name} (Stock: {part.stock})
+              </option>
+            ))}
+        </select>
+        <button
+          onClick={handleAddPart}
+          className="mt-2 bg-blue-500 text-white p-2 rounded"
+        >
+          Add Part
+        </button>
+      </div>
       <ul className="space-y-2">
-        {inventory.map((item) => (
-          <li key={item._id} className="flex gap-4 items-center">
-            {editingId === item._id ? (
-              <>
-                <input
-                  type="text"
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  className="border p-1"
-                />
-                <input
-                  type="number"
-                  value={editStock}
-                  onChange={(e) => setEditStock(e.target.value)}
-                  className="border p-1"
-                />
-                <input
-                  type="text"
-                  value={editCategory}
-                  onChange={(e) => setEditCategory(e.target.value)}
-                  className="border p-1"
-                />
-                <button onClick={() => handleEditSave(item._id)} className="bg-green-500 text-white p-1 rounded">Save</button>
-                <button onClick={handleEditCancel} className="bg-gray-500 text-white p-1 rounded">Cancel</button>
-              </>
-            ) : (
-              <>
-                <span className={item.stock === 0 ? "text-red-500" : item.stock < 5 ? "text-yellow-500" : "text-black"}>
-                  {item.name} (Stock: {item.stock}) {item.category ? `- ${item.category}` : ""} {item.stock === 0 ? "[Low Stock - Reorder]" : ""}
-                </span>
-                <button onClick={() => handleEditStart(item)} className="bg-yellow-500 text-white p-1 rounded">Edit</button>
-                <button onClick={() => handleDelete(item._id)} className="bg-red-500 text-white p-1 rounded">Delete</button>
-              </>
-            )}
-          </li>
-        ))}
+        {currentPartIds.map((partId) => {
+          const part = availableParts.find((p) => p._id === partId);
+          return part ? (
+            <li key={part._id} className="flex justify-between items-center">
+              <span>{part.name} (Stock: {part.stock})</span>
+              <button
+                onClick={() => handleRemovePart(part._id)}
+                className="bg-red-500 text-white p-1 rounded"
+              >
+                Remove
+              </button>
+            </li>
+          ) : null;
+        })}
       </ul>
     </div>
   );

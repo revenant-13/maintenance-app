@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Equipment } from "../types/equipment";
 import { updateMaintenanceTask, updateEquipment, deleteEquipment, deleteMaintenanceTask } from "../services/equipmentService";
+import { useAppContext } from "../context/AppContext";
 
 interface EquipmentTreeProps {
   equipment: Equipment;
@@ -14,7 +15,18 @@ interface EquipmentTreeProps {
   level?: number;
 }
 
-const EquipmentTree: React.FC<EquipmentTreeProps> = ({ equipment, allEquipment, inventoryData, maintenanceTasks, onTaskUpdated, onTaskDeleted, onEquipmentUpdated, onEquipmentDeleted, level = 0 }) => {
+const EquipmentTree: React.FC<EquipmentTreeProps> = ({ 
+  equipment, 
+  allEquipment, 
+  inventoryData, 
+  maintenanceTasks, 
+  onTaskUpdated, 
+  onTaskDeleted, 
+  onEquipmentUpdated, 
+  onEquipmentDeleted, 
+  level = 0 
+}) => {
+  const { activeSection } = useAppContext();
   const [isCollapsed, setIsCollapsed] = useState(level > 0);
   const [isEditingName, setIsEditingName] = useState(false);
   const [newName, setNewName] = useState(equipment.name);
@@ -139,7 +151,7 @@ const EquipmentTree: React.FC<EquipmentTreeProps> = ({ equipment, allEquipment, 
       </div>
       {!isCollapsed && (
         <>
-          {inventoryParts.length > 0 && (
+          {activeSection !== "tasks" && inventoryParts.length > 0 && (
             <ul className="list-disc ml-6 mt-1 text-sm text-gray-500">
               {inventoryParts.map((part) => (
                 <li key={part._id}>{part.name} (Stock: {part.stock})</li>
@@ -190,7 +202,7 @@ const EquipmentTree: React.FC<EquipmentTreeProps> = ({ equipment, allEquipment, 
                         onChange={() => handleTaskToggle(task._id, task.completed || false)}
                         className="mr-2"
                       />
-                      {task.type}: {task.description} (Due: {task.schedule.split("T")[0]})
+                      {task.type} (Due: {task.schedule.split("T")[0]})
                       {task.completed ? " - Completed" : ""}
                       <button
                         onClick={() => handleEditTaskStart(task)}

@@ -1,6 +1,6 @@
 import React, { createContext, useState, useEffect, useContext, useCallback } from "react";
 import { Equipment } from "../types/equipment";
-import { getAllEquipment, getAllInventory, getAllMaintenanceTasks } from "../services/equipmentService";
+import { getAllEquipment, getAllInventory, getAllMaintenanceTasks, updateEquipment } from "../services/equipmentService";
 
 interface DateFilter {
   start: string;
@@ -15,13 +15,16 @@ interface AppContextType {
   dateFilter: DateFilter;
   taskStats: { total: number; completed: number; incomplete: number; overdue: number };
   equipmentTaskStats: { [equipmentId: string]: { total: number; completed: number; incomplete: number; overdue: number } };
+  activeSection: string;
   setReportFilter: (filter: "all" | "completed" | "incomplete") => void;
   setDateFilter: (filter: DateFilter | ((prev: DateFilter) => DateFilter)) => void;
+  setActiveSection: (section: string) => void;
   fetchData: () => Promise<void>;
   handleTaskUpdated: (updatedTask: any) => void;
   handleTaskDeleted: (taskId: string) => void;
   handleEquipmentUpdated: (updatedEquipment: Equipment) => void;
   handleEquipmentDeleted: (equipmentId: string, partIds: string[]) => void;
+  updateEquipmentParts: (equipmentId: string, updatedPartIds: string[]) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -32,6 +35,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [maintenanceTasks, setMaintenanceTasks] = useState<any[]>([]);
   const [reportFilter, setReportFilter] = useState<"all" | "completed" | "incomplete">("all");
   const [dateFilter, setDateFilter] = useState<DateFilter>({ start: "", end: "" });
+  const [activeSection, setActiveSection] = useState("dashboard");
 
   const fetchData = async () => {
     const equipData = await getAllEquipment();
@@ -114,8 +118,56 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const updateEquipmentParts = async (equipmentId: string, updatedPartIds: string[]) => {
+    const equipment = equipmentData.find((e) => e.id === equipmentId);
+    if (equipment) {
+      // Prevent sub-equipment loops by removing this equipment from other parents
+      for (const partId of updatedPartIds) {
+        const parentEquip = equipmentData.find(
+          (e) => e.id !== equipmentId && e.partIds && e.partIds.includes(partId)
+        );
+        if (parentEquip && parentEquip.partIds) {
+          await updateEquipment(parentEquip.id, {
+            partIds: parentEquip.partIds.filter((pid: string) => pid !== partId),
+          });
+        }
+      }
+
+      const updatedEquipment = await updateEquipment(equipmentId, {
+        ...equipment,
+        inventoryPartIds: updatedPartIds,
+      });
+      if (updatedEquipment) {
+        setEquipmentData((prev) =>
+          prev.map((e) => (e.id === equipmentId ? updatedEquipment : e))
+        );
+        await fetchData(); // Refresh to ensure consistency
+      }
+    }
+  };
+
   return (
-    <AppContext.Provider value={{ equipmentData, inventoryData, maintenanceTasks, reportFilter, dateFilter, taskStats, equipmentTaskStats, setReportFilter, setDateFilter, fetchData, handleTaskUpdated, handleTaskDeleted, handleEquipmentUpdated, handleEquipmentDeleted }}>
+    <AppContext.Provider
+      value={{
+        equipmentData,
+        inventoryData,
+        maintenanceTasks,
+        reportFilter,
+        dateFilter,
+        taskStats,
+        equipmentTaskStats,
+        activeSection,
+        setReportFilter,
+        setDateFilter,
+        setActiveSection,
+        fetchData,
+        handleTaskUpdated,
+        handleTaskDeleted,
+        handleEquipmentUpdated,
+        handleEquipmentDeleted,
+        updateEquipmentParts,
+      }}
+    >
       {children}
     </AppContext.Provider>
   );

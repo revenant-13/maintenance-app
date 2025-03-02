@@ -6,21 +6,22 @@ import EquipmentTree from "./components/EquipmentTree";
 import ManageEquipment from "./components/ManageEquipment";
 import NavSidebar from "./components/NavSidebar";
 import Dashboard from "./components/Dashboard";
-import PartsManagement from "./components/PartsManagement";
 import { AppProvider, useAppContext } from "./context/AppContext";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
-const AppContent: React.FC = () => {
-  const { equipmentData, inventoryData, maintenanceTasks, reportFilter, dateFilter, taskStats, equipmentTaskStats, setReportFilter, setDateFilter, fetchData, handleTaskUpdated, handleTaskDeleted, handleEquipmentUpdated, handleEquipmentDeleted } = useAppContext();
+interface AppContentProps {}
+
+const AppContent: React.FC<AppContentProps> = () => {
+  const { equipmentData, inventoryData, maintenanceTasks, reportFilter, dateFilter, setReportFilter, setDateFilter, fetchData, handleTaskUpdated, handleTaskDeleted, handleEquipmentUpdated, handleEquipmentDeleted } = useAppContext();
   const [activeSection, setActiveSection] = useState("dashboard");
   const topLevelEquipment = equipmentData.filter((e) => !e.parentId);
-  const equipmentWithTasks = topLevelEquipment.filter(equip => 
-    maintenanceTasks.some(task => task.equipmentId === equip.id)
+  const equipmentWithTasks = topLevelEquipment.filter((equip) =>
+    maintenanceTasks.some((task) => task.equipmentId === equip.id)
   );
 
   const handleDateFilterChange = (type: "start" | "end", value: string) => {
-    setDateFilter(prev => ({ ...prev, [type]: value }));
+    setDateFilter((prev) => ({ ...prev, [type]: value }));
   };
 
   const renderContent = () => {
@@ -124,8 +125,6 @@ const AppContent: React.FC = () => {
             )}
           </div>
         );
-      case "parts-management":
-        return <PartsManagement />;
       default:
         return <div>Select a section from the sidebar</div>;
     }
@@ -139,12 +138,12 @@ const AppContent: React.FC = () => {
   );
 };
 
-function App() {
+const App: React.FC = () => {
   return (
     <AppProvider>
       <AppContent />
     </AppProvider>
   );
-}
+};
 
 export default App;
