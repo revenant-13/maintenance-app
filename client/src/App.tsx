@@ -6,6 +6,7 @@ import EquipmentTree from "./components/EquipmentTree";
 import ManageEquipment from "./components/ManageEquipment";
 import NavSidebar from "./components/NavSidebar";
 import Dashboard from "./components/Dashboard";
+import PartsManagement from "./components/PartsManagement";
 import { AppProvider, useAppContext } from "./context/AppContext";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
@@ -123,6 +124,8 @@ const AppContent: React.FC = () => {
             )}
           </div>
         );
+      case "parts-management":
+        return <PartsManagement />;
       default:
         return <div>Select a section from the sidebar</div>;
     }

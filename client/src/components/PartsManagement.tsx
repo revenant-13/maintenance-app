@@ -7,6 +7,9 @@ const PartsManagement: React.FC = () => {
   const [stock, setStock] = useState("");
   const [category, setCategory] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editStock, setEditStock] = useState("");
+  const [editCategory, setEditCategory] = useState("");
 
   const fetchInventory = async () => {
     const data = await getAllInventory();
@@ -31,21 +34,28 @@ const PartsManagement: React.FC = () => {
 
   const handleEditStart = (item: any) => {
     setEditingId(item._id);
-    setName(item.name);
-    setStock(item.stock.toString());
-    setCategory(item.category || "");
+    setEditName(item.name);
+    setEditStock(item.stock.toString());
+    setEditCategory(item.category || "");
   };
 
   const handleEditSave = async (id: string) => {
-    const updates = { name, stock: parseInt(stock), category: category || undefined };
+    const updates = { name: editName, stock: parseInt(editStock), category: editCategory || undefined };
     const updatedItem = await updateInventory(id, updates);
     if (updatedItem) {
       setInventory(inventory.map(item => item._id === id ? updatedItem : item));
       setEditingId(null);
-      setName("");
-      setStock("");
-      setCategory("");
+      setEditName("");
+      setEditStock("");
+      setEditCategory("");
     }
+  };
+
+  const handleEditCancel = () => {
+    setEditingId(null);
+    setEditName("");
+    setEditStock("");
+    setEditCategory("");
   };
 
   const handleDelete = async (id: string) => {
@@ -91,24 +101,24 @@ const PartsManagement: React.FC = () => {
               <>
                 <input
                   type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
                   className="border p-1"
                 />
                 <input
                   type="number"
-                  value={stock}
-                  onChange={(e) => setStock(e.target.value)}
+                  value={editStock}
+                  onChange={(e) => setEditStock(e.target.value)}
                   className="border p-1"
                 />
                 <input
                   type="text"
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
+                  value={editCategory}
+                  onChange={(e) => setEditCategory(e.target.value)}
                   className="border p-1"
                 />
                 <button onClick={() => handleEditSave(item._id)} className="bg-green-500 text-white p-1 rounded">Save</button>
-                <button onClick={() => setEditingId(null)} className="bg-gray-500 text-white p-1 rounded">Cancel</button>
+                <button onClick={handleEditCancel} className="bg-gray-500 text-white p-1 rounded">Cancel</button>
               </>
             ) : (
               <>
