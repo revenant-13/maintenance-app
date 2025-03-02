@@ -122,7 +122,9 @@ const PartsManagement: React.FC = () => {
               </>
             ) : (
               <>
-                <span>{item.name} (Stock: {item.stock}) {item.category ? `- ${item.category}` : ""}</span>
+                <span className={item.stock === 0 ? "text-red-500" : item.stock < 5 ? "text-yellow-500" : "text-black"}>
+                  {item.name} (Stock: {item.stock}) {item.category ? `- ${item.category}` : ""} {item.stock === 0 ? "[Low Stock - Reorder]" : ""}
+                </span>
                 <button onClick={() => handleEditStart(item)} className="bg-yellow-500 text-white p-1 rounded">Edit</button>
                 <button onClick={() => handleDelete(item._id)} className="bg-red-500 text-white p-1 rounded">Delete</button>
               </>
