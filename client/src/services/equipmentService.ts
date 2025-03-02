@@ -6,10 +6,7 @@ const API_URL = "http://localhost:3001";
 export const getAllEquipment = async (): Promise<Equipment[]> => {
   try {
     const response = await axios.get(`${API_URL}/equipment`);
-    return response.data.map((item: any) => ({
-      ...item,
-      id: item._id,
-    }));
+    return response.data.map((item: any) => ({ ...item, id: item._id }));
   } catch (error) {
     console.error("Error fetching equipment:", error);
     return [];
@@ -18,12 +15,7 @@ export const getAllEquipment = async (): Promise<Equipment[]> => {
 
 export const addEquipment = async (equipment: Partial<Equipment>): Promise<Equipment | null> => {
   try {
-    const payload = {
-      ...equipment,
-      _id: equipment.id,
-      partIds: equipment.partIds || [],
-      inventoryPartIds: equipment.inventoryPartIds || [],
-    };
+    const payload = { ...equipment, _id: equipment.id, partIds: equipment.partIds || [], inventoryPartIds: equipment.inventoryPartIds || [] };
     delete payload.id;
     const response = await axios.post(`${API_URL}/equipment`, payload);
     return { ...response.data, id: response.data._id };
@@ -46,9 +38,7 @@ export const updateEquipment = async (id: string, updates: Partial<Equipment>): 
 export const deleteEquipment = async (id: string): Promise<void> => {
   try {
     const response = await axios.delete(`${API_URL}/equipment/${id}`);
-    if (response.status !== 204) {
-      throw new Error("Failed to delete equipment");
-    }
+    if (response.status !== 204) throw new Error("Failed to delete equipment");
   } catch (error) {
     console.error("Error deleting equipment:", error);
     throw error;
@@ -62,6 +52,36 @@ export const getAllInventory = async (): Promise<any[]> => {
   } catch (error) {
     console.error("Error fetching inventory:", error);
     return [];
+  }
+};
+
+export const addInventory = async (inventory: { name: string; stock: number; category?: string }): Promise<any | null> => {
+  try {
+    const response = await axios.post(`${API_URL}/inventory`, inventory);
+    return response.data;
+  } catch (error) {
+    console.error("Error adding inventory:", error);
+    return null;
+  }
+};
+
+export const updateInventory = async (id: string, updates: Partial<{ name: string; stock: number; category?: string }>): Promise<any | null> => {
+  try {
+    const response = await axios.put(`${API_URL}/inventory/${id}`, updates);
+    return response.data;
+  } catch (error) {
+    console.error("Error updating inventory:", error);
+    return null;
+  }
+};
+
+export const deleteInventory = async (id: string): Promise<void> => {
+  try {
+    const response = await axios.delete(`${API_URL}/inventory/${id}`);
+    if (response.status !== 204) throw new Error("Failed to delete inventory");
+  } catch (error) {
+    console.error("Error deleting inventory:", error);
+    throw error;
   }
 };
 
@@ -98,9 +118,7 @@ export const updateMaintenanceTask = async (id: string, updates: Partial<{ equip
 export const deleteMaintenanceTask = async (id: string): Promise<void> => {
   try {
     const response = await axios.delete(`${API_URL}/maintenance-tasks/${id}`);
-    if (response.status !== 204) {
-      throw new Error("Failed to delete task");
-    }
+    if (response.status !== 204) throw new Error("Failed to delete task");
   } catch (error) {
     console.error("Error deleting maintenance task:", error);
     throw error;
