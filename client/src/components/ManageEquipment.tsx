@@ -1,190 +1,187 @@
 import React, { useState } from "react";
 import { useAppContext } from "../context/AppContext";
-import { deleteEquipment, updateEquipment } from "../services/equipmentService";
-import { Equipment } from "../types/equipment";
+import { updateEquipment, deleteEquipment } from "../services/equipmentService";
 
 const ManageEquipment: React.FC = () => {
-  const { equipmentData, inventoryData, handleEquipmentUpdated, handleEquipmentDeleted } = useAppContext();
-  const [editingEquipment, setEditingEquipment] = useState<Equipment | null>(null);
+  const { equipmentData, inventoryData, fetchData } = useAppContext();
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editPartIds, setEditPartIds] = useState<string[]>([]);
+  const [editInventoryPartIds, setEditInventoryPartIds] = useState<string[]>([]);
 
-  const handleDelete = async (id: string, partIds: string[]) => {
-    if (window.confirm(`Are you sure you want to delete this equipment?`)) {
-      try {
-        await deleteEquipment(id);
-        await handleEquipmentDeleted(id, partIds);
-      } catch (error) {
-        alert("Failed to delete equipment: " + error);
-      }
-    }
+  const handleEditStart = (equip: any) => {
+    setEditingId(equip.id);
+    setEditName(equip.name);
+    setEditPartIds(equip.partIds || []);
+    setEditInventoryPartIds(equip.inventoryPartIds || []);
   };
 
-  const handleEditStart = (equip: Equipment) => {
-    setEditingEquipment({ ...equip });
-  };
-
-  const handleEditSave = async () => {
-    if (!editingEquipment || !editingEquipment.name.trim()) {
-      alert("Equipment name is required");
-      return;
-    }
-    try {
-      const updatedEquipment = await updateEquipment(editingEquipment.id, {
-        name: editingEquipment.name,
-        partIds: editingEquipment.partIds || [],
-        inventoryPartIds: editingEquipment.inventoryPartIds || [],
-      });
-      if (updatedEquipment) {
-        handleEquipmentUpdated(updatedEquipment);
-        setEditingEquipment(null);
+  const handleEditSave = async (id: string) => {
+    // Remove this equipment's ID from other equipment's partIds to avoid overlap
+    for (const partId of editPartIds) {
+      const parentEquip = equipmentData.find(
+        (e) => e.id !== id && e.partIds && e.partIds.includes(partId)
+      );
+      if (parentEquip && parentEquip.partIds) {
+        await updateEquipment(parentEquip.id, {
+          partIds: parentEquip.partIds.filter((pid: string) => pid !== partId),
+        });
       }
-    } catch (error) {
-      alert("Failed to update equipment: " + error);
+    }
+
+    const updates = {
+      name: editName,
+      partIds: editPartIds,
+      inventoryPartIds: editInventoryPartIds,
+    };
+    const updatedEquipment = await updateEquipment(id, updates);
+    if (updatedEquipment) {
+      await fetchData(); // Refresh data after save
+      setEditingId(null);
+      setEditName("");
+      setEditPartIds([]);
+      setEditInventoryPartIds([]);
     }
   };
 
   const handleEditCancel = () => {
-    setEditingEquipment(null);
+    setEditingId(null);
+    setEditName("");
+    setEditPartIds([]);
+    setEditInventoryPartIds([]);
   };
 
-  const handlePartToggle = (partId: string) => {
-    if (!editingEquipment) return;
-    setEditingEquipment((prev) => {
-      const partIds = prev?.partIds || [];
-      return {
-        ...prev!,
-        partIds: partIds.includes(partId)
-          ? partIds.filter((id) => id !== partId)
-          : [...partIds, partId],
-      };
-    });
+  const handleDelete = async (id: string) => {
+    if (window.confirm("Are you sure you want to delete this equipment?")) {
+      await deleteEquipment(id);
+      await fetchData();
+    }
   };
 
-  const handleInventoryPartToggle = (partId: string) => {
-    if (!editingEquipment) return;
-    setEditingEquipment((prev) => {
-      const inventoryPartIds = prev?.inventoryPartIds || [];
-      return {
-        ...prev!,
-        inventoryPartIds: inventoryPartIds.includes(partId)
-          ? inventoryPartIds.filter((id) => id !== partId)
-          : [...inventoryPartIds, partId],
-      };
-    });
+  const togglePart = (partId: string) => {
+    setEditPartIds((prev) =>
+      prev.includes(partId) ? prev.filter((id) => id !== partId) : [...prev, partId]
+    );
+  };
+
+  const toggleInventoryPart = (partId: string) => {
+    setEditInventoryPartIds((prev) =>
+      prev.includes(partId) ? prev.filter((id) => id !== partId) : [...prev, partId]
+    );
+  };
+
+  const getDescendants = (equipId: string, allEquipment: any[]): string[] => {
+    const descendants: string[] = [];
+    const visited = new Set<string>();
+
+    const findDescendants = (id: string) => {
+      const children = allEquipment.filter((e) => e.partIds?.includes(id));
+      children.forEach((child) => {
+        if (!visited.has(child.id)) {
+          descendants.push(child.id);
+          visited.add(child.id);
+          findDescendants(child.id);
+        }
+      });
+    };
+    findDescendants(equipId);
+    return descendants;
   };
 
   return (
-    <div className="p-6 bg-gray-100 min-h-screen">
-      <h2 className="text-2xl font-semibold mb-4 text-gray-800">Manage Equipment</h2>
-      {equipmentData.length > 0 ? (
-        <div className="bg-white rounded-lg shadow overflow-auto">
-          <table className="w-full border-collapse">
-            <thead>
-              <tr className="bg-gray-200">
-                <th className="p-3 text-left text-gray-700 font-semibold">Name</th>
-                <th className="p-3 text-left text-gray-700 font-semibold">Sub-Equipment</th>
-                <th className="p-3 text-left text-gray-700 font-semibold">Inventory Parts</th>
-                <th className="p-3 text-left text-gray-700 font-semibold">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {equipmentData.map((equip) => (
-                <tr key={equip.id} className="border-b hover:bg-gray-50">
-                  <td className="p-3">{equip.name}</td>
-                  <td className="p-3">
-                    {equip.partIds && equip.partIds.length > 0
-                      ? equip.partIds
-                          .map((id) => equipmentData.find((e) => e.id === id)?.name || "Unknown")
-                          .join(", ")
-                      : "None"}
-                  </td>
-                  <td className="p-3">
-                    {equip.inventoryPartIds && equip.inventoryPartIds.length > 0
-                      ? equip.inventoryPartIds
-                          .map((id) => inventoryData.find((i) => i._id === id)?.name || "Unknown")
-                          .join(", ")
-                      : "None"}
-                  </td>
-                  <td className="p-3">
+    <div className="p-6">
+      <h2 className="text-xl font-semibold mb-2">Manage Equipment</h2>
+      <ul className="space-y-4">
+        {equipmentData.map((equip) => {
+          const descendants = getDescendants(equip.id, equipmentData);
+          // Filter valid sub-equipment: exclude self, descendants, and items that would create cycles
+          const validSubEquipment = equipmentData.filter(
+            (e) =>
+              e.id !== equip.id && // Exclude self
+              !descendants.includes(e.id) && // Exclude descendants
+              !editPartIds.some((pid) => getDescendants(pid, equipmentData).includes(e.id)) // Prevent cycles
+          );
+
+          return (
+            <li key={equip.id} className="border p-4 rounded">
+              {editingId === equip.id ? (
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="border p-2 w-full rounded"
+                  />
+                  <div>
+                    <label className="block font-semibold">Sub-Equipment:</label>
+                    <div className="max-h-40 overflow-auto border p-2 rounded">
+                      {validSubEquipment.map((part) => (
+                        <div key={part.id} className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={editPartIds.includes(part.id)}
+                            onChange={() => togglePart(part.id)}
+                            className="mr-2"
+                          />
+                          <span>{part.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block font-semibold">Inventory Parts:</label>
+                    <div className="max-h-40 overflow-auto border p-2 rounded">
+                      {inventoryData.map((part) => (
+                        <div key={part._id} className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={editInventoryPartIds.includes(part._id)}
+                            onChange={() => toggleInventoryPart(part._id)}
+                            className="mr-2"
+                          />
+                          <span>{part.name} (Stock: {part.stock})</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleEditSave(equip.id)}
+                      className="bg-green-500 text-white p-2 rounded"
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={handleEditCancel}
+                      className="bg-gray-500 text-white p-2 rounded"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex justify-between items-center">
+                  <span>{equip.name}</span>
+                  <div className="flex gap-2">
                     <button
                       onClick={() => handleEditStart(equip)}
-                      className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded mr-2 transition"
+                      className="bg-yellow-500 text-white p-2 rounded"
                     >
                       Edit
                     </button>
                     <button
-                      onClick={() => handleDelete(equip.id, equip.partIds || [])}
-                      className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded transition"
+                      onClick={() => handleDelete(equip.id)}
+                      className="bg-red-500 text-white p-2 rounded"
                     >
                       Delete
                     </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <p className="text-gray-600">No equipment found</p>
-      )}
-
-      {editingEquipment && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-1/2 max-h-[80vh] overflow-y-auto">
-            <h3 className="text-xl font-semibold mb-4 text-gray-800">Edit Equipment</h3>
-            <input
-              type="text"
-              value={editingEquipment.name}
-              onChange={(e) => setEditingEquipment({ ...editingEquipment, name: e.target.value })}
-              placeholder="Equipment Name"
-              className="border p-2 mb-4 w-full rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <div className="mb-4">
-              <p className="font-semibold text-gray-700 mb-2">Sub-Equipment:</p>
-              {equipmentData.map((equip) => (
-                equip.id !== editingEquipment.id && (
-                  <label key={equip.id} className="block mb-1">
-                    <input
-                      type="checkbox"
-                      checked={editingEquipment.partIds?.includes(equip.id) || false}
-                      onChange={() => handlePartToggle(equip.id)}
-                      className="mr-2"
-                    />
-                    {equip.name}
-                  </label>
-                )
-              ))}
-            </div>
-            <div className="mb-4">
-              <p className="font-semibold text-gray-700 mb-2">Inventory Parts:</p>
-              {inventoryData.map((part) => (
-                <label key={part._id} className="block mb-1">
-                  <input
-                    type="checkbox"
-                    checked={editingEquipment.inventoryPartIds?.includes(part._id) || false}
-                    onChange={() => handleInventoryPartToggle(part._id)}
-                    className="mr-2"
-                  />
-                  {part.name} (Stock: {part.stock})
-                </label>
-              ))}
-            </div>
-            <div className="flex gap-3">
-              <button
-                onClick={handleEditSave}
-                className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded transition"
-              >
-                Save
-              </button>
-              <button
-                onClick={handleEditCancel}
-                className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded transition"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+                  </div>
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 };
